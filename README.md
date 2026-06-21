@@ -23,9 +23,9 @@ Bind these to keyboard shortcuts, either in the GNOME settings, or via `gsetting
 
 | Command                  | Action                                              |
 | ------------------------ | --------------------------------------------------- |
-| `whisper.py`             | Toggle: start recording, or stop + transcribe + paste |
-| `whisper.py --yolo`      | Same, but press Enter after pasting                 |
-| `whisper.py --cancel`    | Cancel an in-progress recording without transcribing |
+| `wisp.py`                | Toggle: start recording, or stop + transcribe + paste |
+| `wisp.py --yolo`         | Same, but press Enter after pasting                 |
+| `wisp.py --cancel`       | Cancel an in-progress recording without transcribing |
 
 ## Notes
 
