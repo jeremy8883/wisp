@@ -17,6 +17,8 @@ And yes, the bulk of this script is generated using AI.
 sudo dnf install python3-requests pipewire-utils ydotool wl-clipboard libnotify dbus-tools python3-gobject gtk3 libappindicator-gtk3
 ```
 
+- For streaming mode, you also need the `websocket-client` Python package: `pip install websocket-client`.
+
 ## Usage
 
 Bind these to keyboard shortcuts, either in the GNOME settings, or via `gsettings set` (ask your AI agent to do it, this is much more complicated than it needs to be lol):
@@ -26,8 +28,32 @@ Bind these to keyboard shortcuts, either in the GNOME settings, or via `gsetting
 | `wisp.py`                | Toggle: start recording, or stop + transcribe + paste |
 | `wisp.py --yolo`         | Same, but press Enter after pasting                 |
 | `wisp.py --cancel`       | Cancel an in-progress recording without transcribing |
+| `wisp.py --stream`       | Toggle live streaming: type as you speak, correcting in place |
+
+## Streaming mode
+
+`wisp.py --stream` is a toggle, just like the batch mode: press once to start, press again to stop. Instead of recording to a file and pasting at the end, it opens a streaming connection to OpenAI's realtime transcription API (`gpt-4o-transcribe`) and **types words into the focused window as you speak**.
+
+Because the model revises earlier words as it hears more of a sentence, wisp rewrites what it has already typed: it backspaces the part that changed and retypes the corrected tail.
+
+Extra streaming flags:
+
+| Flag                  | Effect                                                                 |
+| --------------------- | --------------------------------------------------------------------- |
+| `--safe`              | Only ever use single backspaces, never Alt+Backspace. Slowest but the most predictable across apps. |
+| `--language en`       | Optional ISO language hint passed to the transcription model.          |
+
+If word-delete in your app eats one character too many/few around spaces, try `--safe`, or flip `WORD_DELETE_CONSUMES_LEADING_SPACE` in `correction.py`.
+
+## Unit tests
+
+Run the tests with:
+
+```
+python3 -m unittest discover -s tests
+```
 
 ## Notes
 
-- Recordings cap out at 300 seconds.
-- The clipboard is automatically restored after pasting in non-terminal windows.
+- Batch recordings cap out at 300 seconds.
+- The clipboard is automatically restored after pasting in non-terminal windows (batch mode).

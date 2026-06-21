@@ -1,0 +1,2 @@
+requests          # batch mode: uploads the recording to the Whisper API
+websocket-client   # streaming mode (--stream): realtime transcription socket

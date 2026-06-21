@@ -15,10 +15,9 @@ import sys
 import time
 from pathlib import Path
 
-import requests
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 PIDFILE = Path("/tmp/whisper-recording.pid")
+STREAM_PIDFILE = Path("/tmp/whisper-stream.pid")
 INDICATOR_PIDFILE = Path("/tmp/whisper-indicator.pid")
 AUDIO = Path("/tmp/whisper-recording.wav")
 SAMPLE_RATE = 16000
@@ -141,6 +140,8 @@ def wl_copy(text, *, primary=False):
 
 
 def transcribe():
+    import requests  # batch-mode only dependency
+
     with AUDIO.open("rb") as f:
         resp = requests.post(
             "https://api.openai.com/v1/audio/transcriptions",
@@ -231,12 +232,83 @@ def start_recording():
     INDICATOR_PIDFILE.write_text(str(indicator.pid))
 
 
+def run_stream(args):
+    """Live streaming transcription: type into the focused window as you speak,
+    correcting earlier text in place as the model revises it."""
+    # Imported here so batch mode has no hard dependency on these modules.
+    from keyboard import ALT_BACKSPACE, CTRL_BACKSPACE, Keyboard
+    from realtime import StreamingTranscriber
+
+    chord = CTRL_BACKSPACE if args.ctrl_word_delete else ALT_BACKSPACE
+    keyboard = Keyboard(word_delete_chord=chord, safe=args.safe)
+    transcriber = StreamingTranscriber(
+        os.environ["OPENAI_API_KEY"],
+        keyboard,
+        language=args.language,
+        on_error=lambda msg: notify(
+            f"Streaming error: {msg}", urgency="critical", timeout_ms=5000
+        ),
+    )
+
+    def handle_stop(_signum, _frame):
+        transcriber.stop()
+
+    signal.signal(signal.SIGINT, handle_stop)
+    signal.signal(signal.SIGTERM, handle_stop)
+
+    STREAM_PIDFILE.write_text(str(os.getpid()))
+    indicator = subprocess.Popen(
+        [str(SCRIPT_DIR / "whisper-indicator")],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    INDICATOR_PIDFILE.write_text(str(indicator.pid))
+
+    try:
+        transcriber.run()
+    except ModuleNotFoundError:
+        notify(
+            "Streaming needs the 'websocket-client' package:\n"
+            "pip install websocket-client",
+            urgency="critical", timeout_ms=6000,
+        )
+        sys.exit(1)
+    finally:
+        STREAM_PIDFILE.unlink(missing_ok=True)
+        indicator_stop()
+
+
+def toggle_stream(args):
+    pid = read_pid(STREAM_PIDFILE)
+    if pid_alive(pid):
+        # Second press: stop the running stream and let it finalize.
+        try:
+            os.kill(pid, signal.SIGINT)
+        except OSError:
+            pass
+        return
+    STREAM_PIDFILE.unlink(missing_ok=True)
+    run_stream(args)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--yolo", action="store_true",
                         help="press Enter after pasting the transcription")
     parser.add_argument("--cancel", action="store_true",
                         help="cancel an in-progress recording")
+    parser.add_argument("--stream", action="store_true",
+                        help="live streaming mode: type words as you speak and "
+                             "correct them in place (toggle)")
+    parser.add_argument("--safe", action="store_true",
+                        help="streaming: only ever use single backspaces "
+                             "(never Alt+Backspace word-delete)")
+    parser.add_argument("--ctrl-word-delete", action="store_true",
+                        help="streaming: use Ctrl+Backspace instead of "
+                             "Alt+Backspace for word deletion")
+    parser.add_argument("--language",
+                        help="streaming: ISO language hint (e.g. en) for the "
+                             "transcription model")
     args = parser.parse_args()
 
     if not os.environ.get("OPENAI_API_KEY"):
@@ -248,6 +320,10 @@ def main():
         sys.exit(1)
 
     os.environ["YDOTOOL_SOCKET"] = f"/run/user/{os.getuid()}/.ydotool_socket"
+
+    if args.stream:
+        toggle_stream(args)
+        return
 
     recording_active = pid_alive(read_pid(PIDFILE))
 
