@@ -1,0 +1,51 @@
+#!/usr/bin/python3
+"""System tray indicator for whisper.py recording/transcription state.
+
+Lifecycle (driven by whisper.py via signals):
+  Launch  → shows mic icon with "Recording..." label
+  SIGUSR1 → switches to "Transcribing..." label
+  SIGTERM → exits cleanly
+"""
+
+import signal
+
+import gi
+gi.require_version("AppIndicator3", "0.1")
+gi.require_version("Gtk", "3.0")
+from gi.repository import AppIndicator3, GLib, Gtk
+
+INDICATOR_ID = "whisper-stt"
+
+indicator = AppIndicator3.Indicator.new(
+    INDICATOR_ID,
+    "audio-input-microphone",
+    AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
+)
+indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+indicator.set_label("  Recording…", "")
+
+# AppIndicator requires a menu even if we don't need one
+menu = Gtk.Menu()
+item_quit = Gtk.MenuItem(label="Cancel")
+item_quit.connect("activate", lambda _: Gtk.main_quit())
+menu.append(item_quit)
+menu.show_all()
+indicator.set_menu(menu)
+
+
+def on_transcribing(*_args):
+    indicator.set_icon_full("content-loading-symbolic", "transcribing")
+    indicator.set_label("  Transcribing…", "")
+    return GLib.SOURCE_CONTINUE
+
+
+def on_quit(*_args):
+    Gtk.main_quit()
+    return GLib.SOURCE_REMOVE
+
+
+GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, on_transcribing)
+GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, on_quit)
+GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, on_quit)
+
+Gtk.main()
