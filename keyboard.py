@@ -19,10 +19,11 @@ KEY_BACKSPACE = 14
 KEY_LEFTCTRL = 29
 KEY_LEFTALT = 56
 
-# Word-delete chord presets.  Alt+Backspace is the default the user asked for;
-# Ctrl+Backspace is the common GUI variant if a given app prefers it.
-ALT_BACKSPACE = (KEY_LEFTALT, KEY_BACKSPACE)
+# Word-delete chord presets.  Ctrl+Backspace is the default (the conventional
+# delete-previous-word on Linux GUI apps); Alt+Backspace is the readline/terminal
+# variant.
 CTRL_BACKSPACE = (KEY_LEFTCTRL, KEY_BACKSPACE)
+ALT_BACKSPACE = (KEY_LEFTALT, KEY_BACKSPACE)
 
 
 def _default_runner(argv):
@@ -30,7 +31,7 @@ def _default_runner(argv):
 
 
 class Keyboard:
-    def __init__(self, runner=_default_runner, word_delete_chord=ALT_BACKSPACE,
+    def __init__(self, runner=_default_runner, word_delete_chord=CTRL_BACKSPACE,
                  safe=False):
         self._run = runner
         self._mod, self._del = word_delete_chord

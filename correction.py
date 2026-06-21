@@ -26,7 +26,7 @@ segment is final it can never be reached by a later correction.
 Deletion strategy (word vs char)
 --------------------------------
 Deleting one character per Backspace is perfectly predictable but slow.  A
-word-delete (Alt+Backspace) is fast but its exact behaviour varies between
+word-delete (Ctrl+Backspace) is fast but its exact behaviour varies between
 applications, *especially* around punctuation.  So we use word-delete only for
 "clean" runs -- maximal runs of ASCII letters/digits -- and fall back to single
 Backspaces the moment an ambiguous character (punctuation, symbol, accent, CJK,

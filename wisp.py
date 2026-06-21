@@ -128,6 +128,21 @@ def focused_wm_class():
     return ""
 
 
+# wm_class fragments for terminal emulators.  In a terminal, Ctrl+Backspace is
+# usually not "delete previous word" (the shell/readline/TUI grabs the keys), so
+# we fall back to plain backspaces there.
+TERMINALS = (
+    "ghostty", "gnome-terminal", "konsole", "xterm", "alacritty", "kitty",
+    "wezterm", "terminator", "tilix", "foot", "urxvt", "rxvt", "st-256color",
+    "xfce4-terminal", "io.elementary.terminal", "org.kde.konsole",
+)
+
+
+def is_terminal(wm_class):
+    cls = (wm_class or "").lower()
+    return any(term in cls for term in TERMINALS)
+
+
 def ydotool_key(*codes):
     subprocess.run(["ydotool", "key", *codes], check=False)
 
@@ -236,15 +251,18 @@ def run_stream(args):
     """Live streaming transcription: type into the focused window as you speak,
     correcting earlier text in place as the model revises it."""
     # Imported here so batch mode has no hard dependency on these modules.
-    from keyboard import ALT_BACKSPACE, CTRL_BACKSPACE, Keyboard
+    from keyboard import Keyboard
     from realtime import StreamingTranscriber
 
-    chord = CTRL_BACKSPACE if args.ctrl_word_delete else ALT_BACKSPACE
-    keyboard = Keyboard(word_delete_chord=chord, safe=args.safe)
+    # Terminals don't honour Ctrl+Backspace as delete-word; use plain backspaces
+    # there.  --safe forces it everywhere.
+    safe = args.safe or is_terminal(focused_wm_class())
+    keyboard = Keyboard(safe=safe)
     transcriber = StreamingTranscriber(
         os.environ["OPENAI_API_KEY"],
         keyboard,
         language=args.language,
+        silence_ms=args.silence_ms,
         on_error=lambda msg: notify(
             f"Streaming error: {msg}", urgency="critical", timeout_ms=5000
         ),
@@ -302,13 +320,14 @@ def main():
                              "correct them in place (toggle)")
     parser.add_argument("--safe", action="store_true",
                         help="streaming: only ever use single backspaces "
-                             "(never Alt+Backspace word-delete)")
-    parser.add_argument("--ctrl-word-delete", action="store_true",
-                        help="streaming: use Ctrl+Backspace instead of "
-                             "Alt+Backspace for word deletion")
+                             "(never Ctrl+Backspace word-delete)")
     parser.add_argument("--language",
                         help="streaming: ISO language hint (e.g. en) for the "
                              "transcription model")
+    parser.add_argument("--silence-ms", type=int, default=1000,
+                        help="streaming: silence (ms) before a sentence is "
+                             "finalized; raise it if slow speech gets split "
+                             "(default: 1000)")
     args = parser.parse_args()
 
     if not os.environ.get("OPENAI_API_KEY"):

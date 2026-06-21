@@ -16,13 +16,13 @@ class KeyboardTests(unittest.TestCase):
         Keyboard(runner=calls.append, **kw).apply(ops)
         return calls
 
-    def test_word_delete_emits_alt_backspace_chord(self):
+    def test_word_delete_defaults_to_ctrl_backspace_chord(self):
         calls = self._capture([WordDelete(4)])
-        self.assertEqual(calls, [["ydotool", "key", "56:1", "14:1", "14:0", "56:0"]])
+        self.assertEqual(calls, [["ydotool", "key", "29:1", "14:1", "14:0", "29:0"]])
 
     def test_word_delete_chord_is_configurable(self):
-        calls = self._capture([WordDelete(4)], word_delete_chord=CTRL_BACKSPACE)
-        self.assertEqual(calls, [["ydotool", "key", "29:1", "14:1", "14:0", "29:0"]])
+        calls = self._capture([WordDelete(4)], word_delete_chord=ALT_BACKSPACE)
+        self.assertEqual(calls, [["ydotool", "key", "56:1", "14:1", "14:0", "56:0"]])
 
     def test_char_delete_batches_backspaces(self):
         calls = self._capture([CharDelete(3)])

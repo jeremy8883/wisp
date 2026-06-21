@@ -74,7 +74,14 @@ class TranscriptRouter:
         return []
 
 
-def session_config(model="gpt-4o-transcribe", language=None):
+# How long the server must hear silence before it finalizes a segment.  The API
+# default (~500ms) chops slow/deliberate speech into separate sentences, which
+# stops later words from correcting earlier ones.  Wait longer by default.
+DEFAULT_SILENCE_MS = 1000
+
+
+def session_config(model="gpt-4o-transcribe", language=None,
+                   silence_ms=DEFAULT_SILENCE_MS):
     """Build the GA session.update payload for a transcription session.
 
     GA restructured this from the beta `transcription_session.update`: the event
@@ -84,6 +91,11 @@ def session_config(model="gpt-4o-transcribe", language=None):
     transcription = {"model": model}
     if language:
         transcription["language"] = language
+    # Server-side VAD segments speech for us; each segment yields one completed
+    # event.  A longer silence window keeps a pause-heavy sentence in one segment.
+    turn_detection = {"type": "server_vad"}
+    if silence_ms is not None:
+        turn_detection["silence_duration_ms"] = silence_ms
     return {
         "type": "session.update",
         "session": {
@@ -92,9 +104,7 @@ def session_config(model="gpt-4o-transcribe", language=None):
                 "input": {
                     "format": {"type": "audio/pcm", "rate": SAMPLE_RATE},
                     "transcription": transcription,
-                    # Server-side VAD segments speech for us; each segment yields
-                    # one completed event.
-                    "turn_detection": {"type": "server_vad"},
+                    "turn_detection": turn_detection,
                 },
             },
         },
@@ -113,11 +123,12 @@ class StreamingTranscriber:
     """
 
     def __init__(self, api_key, keyboard, *, model="gpt-4o-transcribe",
-                 language=None, on_error=None):
+                 language=None, silence_ms=DEFAULT_SILENCE_MS, on_error=None):
         self.api_key = api_key
         self.keyboard = keyboard
         self.model = model
         self.language = language
+        self.silence_ms = silence_ms
         self.on_error = on_error or (lambda msg: None)
 
         self.router = TranscriptRouter()
@@ -171,7 +182,7 @@ class StreamingTranscriber:
     # -- websocket callbacks ------------------------------------------------
 
     def _on_open(self, ws):
-        self._send(session_config(self.model, self.language))
+        self._send(session_config(self.model, self.language, self.silence_ms))
         self._audio_thread = threading.Thread(target=self._pump_audio, daemon=True)
         self._audio_thread.start()
 

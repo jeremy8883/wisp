@@ -28,11 +28,15 @@ Bind these to keyboard shortcuts, either in the GNOME settings, or via `gsetting
 | `wisp.py`                | Toggle: start recording, or stop + transcribe + paste |
 | `wisp.py --yolo`         | Same, but press Enter after pasting                 |
 | `wisp.py --cancel`       | Cancel an in-progress recording without transcribing |
-| `wisp.py --stream`       | Toggle live streaming: type as you speak, correcting in place |
+| `wisp.py --stream`       | Toggle live streaming: type as you speak, correcting in place. Still WIP, and doesn't work well at all |
 
 ## Streaming mode
 
-`wisp.py --stream` is a toggle, just like the batch mode: press once to start, press again to stop. Instead of recording to a file and pasting at the end, it opens a streaming connection to OpenAI's realtime transcription API (`gpt-4o-transcribe`) and **types words into the focused window as you speak**.
+`wisp.py --stream` is a toggle, just like the batch mode: press once to start, press again to stop.
+
+**THIS IS STILL WIP, AND DOESN'T WORK WELL AT ALL**
+
+Instead of recording to a file and pasting at the end, it opens a streaming connection to OpenAI's realtime transcription API (`gpt-4o-transcribe`) and **types words into the focused window as you speak**.
 
 Because the model revises earlier words as it hears more of a sentence, wisp rewrites what it has already typed: it backspaces the part that changed and retypes the corrected tail.
 
@@ -40,10 +44,13 @@ Extra streaming flags:
 
 | Flag                  | Effect                                                                 |
 | --------------------- | --------------------------------------------------------------------- |
-| `--safe`              | Only ever use single backspaces, never Alt+Backspace. Slowest but the most predictable across apps. |
+| `--safe`              | Only ever use single backspaces, never Ctrl+Backspace. Slowest but the most predictable across apps. |
 | `--language en`       | Optional ISO language hint passed to the transcription model.          |
+| `--silence-ms 1000`   | Silence (ms) before a sentence is finalized. Raise it if slow/deliberate speech gets split into separate sentences (default: 1000). |
 
-If word-delete in your app eats one character too many/few around spaces, try `--safe`, or flip `WORD_DELETE_CONSUMES_LEADING_SPACE` in `correction.py`.
+Terminals are auto-detected (by window class) and use plain backspaces, since shells/TUIs don't treat Ctrl+Backspace as delete-word. `--safe` forces that everywhere.
+
+If word-delete in a GUI app eats one character too many/few around spaces, try `--safe`, or flip `WORD_DELETE_CONSUMES_LEADING_SPACE` in `correction.py`.
 
 ## Unit tests
 

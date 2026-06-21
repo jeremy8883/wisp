@@ -95,6 +95,16 @@ class SessionConfigTests(unittest.TestCase):
         inp = cfg["session"]["audio"]["input"]
         self.assertEqual(inp["transcription"]["language"], "en")
 
+    def test_silence_duration_included_by_default(self):
+        td = session_config()["session"]["audio"]["input"]["turn_detection"]
+        self.assertEqual(td["silence_duration_ms"], 1000)
+
+    def test_silence_duration_custom_and_omittable(self):
+        td = session_config(silence_ms=2500)["session"]["audio"]["input"]["turn_detection"]
+        self.assertEqual(td["silence_duration_ms"], 2500)
+        td = session_config(silence_ms=None)["session"]["audio"]["input"]["turn_detection"]
+        self.assertNotIn("silence_duration_ms", td)
+
 
 if __name__ == "__main__":
     unittest.main()
