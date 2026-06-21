@@ -3,7 +3,7 @@
 
 Bind this to a GNOME keyboard shortcut for push-to-talk toggle.
 
-Requires: OPENAI_API_KEY in ~/.config/whisper/env
+Requires: OPENAI_API_KEY environment variable.
 """
 
 import argparse
@@ -21,7 +21,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PIDFILE = Path("/tmp/whisper-recording.pid")
 INDICATOR_PIDFILE = Path("/tmp/whisper-indicator.pid")
 AUDIO = Path("/tmp/whisper-recording.wav")
-ENV_FILE = Path.home() / ".config/whisper/env"
 SAMPLE_RATE = 16000
 MAX_DURATION = 300
 
@@ -64,23 +63,6 @@ def wait_for_exit(pid, poll=0.05):
         except OSError:
             return
         time.sleep(poll)
-
-
-def load_env_file(path):
-    """Mimic `source`-ing a simple KEY=VALUE env file into os.environ."""
-    if not path.is_file():
-        return
-    for raw in path.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("export "):
-            line = line[len("export "):]
-        if "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        value = value.strip().strip('"').strip("'")
-        os.environ[key.strip()] = value
 
 
 def indicator_stop():
@@ -257,11 +239,9 @@ def main():
                         help="cancel an in-progress recording")
     args = parser.parse_args()
 
-    load_env_file(ENV_FILE)
-
     if not os.environ.get("OPENAI_API_KEY"):
         notify(
-            f"OPENAI_API_KEY not set.\nAdd it to {ENV_FILE}\n"
+            "OPENAI_API_KEY not set.\n"
             "https://platform.openai.com/api-keys",
             urgency="critical",
         )
